@@ -2,64 +2,75 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import { Questionare } from './components';
 
-const API_URL = 'https://opentdb.com/api.php?amount=10&category=18'
+const API_URL = 'https://opentdb.com/api.php?amount=10&category=18';
 
 function App() {
-
-  const [questions, setQuestions] = useState([])
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [score, setScore] = useState(0)
-  const [showAnswers, setShowAnswers] = useState(false)
-
-
+  const [questions, setQuestions] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [showAnswers, setShowAnswers] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch(API_URL)
-      .then(res => res.json())
-      .then(data => {
+    const fetchQuestions = async () => {
+      try {
+        const response = await fetch(API_URL);
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        const formattedQuestions = data.results.map(question => ({
+          ...question,
+          answers: [question.correct_answer, ...question.incorrect_answers].sort(() => Math.random() - 0.5)
+        }));
+        setQuestions(formattedQuestions);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-        const questions = data.results.map(question => {
-          return {
-            ...question,
-            answers: [question.correct_answer, ...question.incorrect_answers].sort(() => Math.random() - 0.5)
-          }
-        })
-
-        setQuestions(questions)
-      })
-  }, [])
+    fetchQuestions();
+  }, []);
 
   const handleAnswer = (ans) => {
-
     if (!showAnswers) {
       if (ans === questions[currentIndex].correct_answer) {
-        setScore(score + 1)
+        setScore(prevScore => prevScore + 1);
       }
     }
-
-    setShowAnswers(true)
-
-
-  }
-
+    setShowAnswers(true);
+  };
 
   const handleNextQuestion = () => {
     setShowAnswers(false);
-    const newIndex = currentIndex + 1;
-    setCurrentIndex(newIndex)
+    setCurrentIndex(prevIndex => prevIndex + 1);
+  };
+
+  if (loading) {
+    return <h2 className="text-2xl text-white font-bold">Loading..</h2>;
   }
 
-  return questions.length > 0 ? (
+  if (error) {
+    return <h2 className="text-2xl text-white font-bold">Error: {error}</h2>;
+  }
+
+  if (currentIndex >= questions.length) {
+    return <h1 className='text-3xl text-white font-bold'>Game Ended! Your score is {score}.</h1>;
+  }
+
+  return (
     <div className="container">
-      {
-        currentIndex >= questions.length ? (
-          <h1 className='text-3xl text-white font-bold'>Game Ended! Your score is {score}.</h1>
-        ) : <Questionare handleNextQuestion={handleNextQuestion} showAnswers={showAnswers} data={questions[currentIndex]} handleAnswer={handleAnswer} />
-      }
-
-
+      <Questionare
+        handleNextQuestion={handleNextQuestion}
+        showAnswers={showAnswers}
+        data={questions[currentIndex]}
+        handleAnswer={handleAnswer}
+      />
     </div>
-  ) : (<h2 className="text-2xl text-white font-bold">Loading..</h2>)
+  );
 }
 
 export default App;
